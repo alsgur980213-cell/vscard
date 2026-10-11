@@ -155,7 +155,7 @@
       line-height: inherit;
       color: inherit;
       text-align: left;
-      cursor: copy;
+      cursor: pointer;
     }
     .contact-row-copy:disabled {
       opacity: .52;
