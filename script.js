@@ -1,35 +1,34 @@
 (() => {
   'use strict';
 
-  // 프로필 데이터는 HTML의 #profile-data에서 읽습니다.
   const byId = (id) => document.getElementById(id);
-  const profileDataElement = byId('profile-data');
-  const stored = JSON.parse(profileDataElement.textContent);
+  const dataNode = byId('profile-data');
+  if (!dataNode) return;
+
+  let stored;
+  try {
+    stored = JSON.parse(dataNode.textContent || '{}');
+  } catch (error) {
+    console.error('프로필 데이터를 읽지 못했습니다.', error);
+    return;
+  }
+
   const profile = {
     name: String(stored.name || ''),
     role: String(stored.role || ''),
-    email: String(stored.email || ''),
-    phone: String(stored.phone || ''),
-    photo:
-      typeof stored.photo === 'string' &&
+    email: String(stored.email || '').trim(),
+    phone: String(stored.phone || '').trim(),
+    photo: typeof stored.photo === 'string' &&
       /^(?:data:image\/(?:jpeg|png|webp|gif|avif);base64,|https:\/\/pixabay\.com\/images\/download\/x-323262_1920\.jpg$)/.test(stored.photo)
         ? stored.photo
         : ''
   };
 
-  const dialog = byId('editor-dialog');
-  const form = byId('editor-form');
-  const photoInput = byId('field-photo');
-  const photoNote = byId('photo-note');
-  const applyButton = byId('apply-editor');
-  let pendingPhoto = null;
-  let readingPhoto = false;
   let toastTimer = null;
 
-  // style.css를 수정하지 않고 JS에서 카드 호버 애니메이션과 알림 스타일을 추가합니다.
+  // 기존 카드 호버 및 이메일 복사 알림 스타일 유지.
   function installInteractionStyles() {
     if (byId('business-card-interaction-styles')) return;
-
     const style = document.createElement('style');
     style.id = 'business-card-interaction-styles';
     style.textContent = `
@@ -47,7 +46,6 @@
       @media (prefers-reduced-motion: reduce) {
         .card { transition: none !important; }
       }
-      #email-link:not(.is-empty) { cursor: copy; }
       #copy-toast {
         position: fixed;
         left: 50%;
@@ -79,7 +77,6 @@
     document.head.appendChild(style);
   }
 
-  // 화면에 짧게 표시하고, 스크린리더에는 기존 #announce를 이용해 안내합니다.
   function notify(message) {
     const announce = byId('announce');
     if (announce) announce.textContent = message;
@@ -93,7 +90,6 @@
     }
     toast.textContent = message;
     toast.classList.add('is-visible');
-
     if (toastTimer !== null) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       toast.classList.remove('is-visible');
@@ -101,7 +97,7 @@
     }, 2200);
   }
 
-  // file:// 등 Clipboard API를 사용할 수 없는 환경을 위한 대체 복사 방법입니다.
+  // 보안 컨텍스트가 아닌 file:// 실행 환경에서도 클립보드 복사를 시도합니다.
   function fallbackCopy(text) {
     const textarea = document.createElement('textarea');
     const previousFocus = document.activeElement;
@@ -110,10 +106,8 @@
     textarea.setAttribute('aria-hidden', 'true');
     textarea.style.position = 'fixed';
     textarea.style.left = '-9999px';
-    textarea.style.top = '0';
     textarea.style.opacity = '0';
     document.body.appendChild(textarea);
-
     let copied = false;
     try {
       textarea.focus();
@@ -131,80 +125,58 @@
     return copied;
   }
 
-  // 표시된 이메일 주소를 클릭했을 때 클립보드에 복사합니다.
-  // 하단 이메일 버튼(#email-button)은 기존처럼 메일 작성 기능을 유지합니다.
-  async function copyEmail(event) {
-    event.preventDefault();
-    const email = profile.email.trim();
-    if (!email) return;
-
+  // 연락처 전체 행에 연결하는 공통 클립보드 복사 기능.
+  // 브라우저 보안 정책상 호버만으로 자동 복사는 할 수 없어, 클릭 시 복사합니다.
+  async function copyContact(value, label) {
+    if (!value) return;
     let copied = false;
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       try {
-        await navigator.clipboard.writeText(email);
+        await navigator.clipboard.writeText(value);
         copied = true;
       } catch (error) {
-        // 권한 거부, 비보안 환경 등에서는 대체 복사를 시도합니다.
+        // 클립보드 권한이 없으면 execCommand를 사용해 대체 복사를 시도합니다.
       }
     }
-
-    if (!copied) copied = fallbackCopy(email);
-    notify(copied ? '이메일 주소가 복사되었습니다.' : '자동 복사에 실패했습니다. 이메일 주소를 직접 복사해 주세요.');
+    if (!copied) copied = fallbackCopy(value);
+    notify(copied
+      ? label + '가 복사되었습니다.'
+      : '자동 복사에 실패했습니다. ' + label + '를 직접 복사해 주세요.');
   }
 
-  byId('avatar-image').addEventListener('error', () => {
-    byId('avatar-image').hidden = true;
-    byId('avatar-initial').hidden = false;
-  });
-
-  function setLink(node, value, href, emptyLabel) {
-    const hasValue = Boolean(value.trim());
-    node.textContent = hasValue ? value : emptyLabel;
-    node.classList.toggle('is-empty', !hasValue);
-    if (hasValue) {
-      node.setAttribute('href', href);
-      node.removeAttribute('aria-disabled');
-      node.removeAttribute('tabindex');
-    } else {
-      node.removeAttribute('href');
-      node.setAttribute('aria-disabled', 'true');
-      node.setAttribute('tabindex', '-1');
-    }
+  function updateContactRow(rowId, valueId, value, emptyLabel, accessibleLabel) {
+    const row = byId(rowId);
+    const text = byId(valueId);
+    if (!row || !text) return;
+    text.textContent = value || emptyLabel;
+    text.classList.toggle('is-empty', !value);
+    row.disabled = !value;
+    row.setAttribute('aria-label', value
+      ? accessibleLabel + ': ' + value
+      : emptyLabel);
   }
 
   function renderProfile() {
     byId('display-name').textContent = profile.name || '이름';
-    byId('display-role').textContent = profile.role || '직군을 입력해 주세요';
+    byId('display-role').textContent = profile.role || '직군';
     byId('avatar-initial').textContent = [...profile.name.trim()][0] || '?';
 
     const avatar = byId('avatar-image');
     const hasPhoto = Boolean(profile.photo);
     avatar.hidden = !hasPhoto;
     byId('avatar-initial').hidden = hasPhoto;
+    avatar.alt = (profile.name || '사용자') + '의 프로필 사진';
     if (hasPhoto) avatar.src = profile.photo;
     else avatar.removeAttribute('src');
-    avatar.alt = (profile.name || '사용자') + '의 프로필 사진';
 
-    const emailLink = byId('email-link');
-    setLink(emailLink, profile.email, 'mailto:' + profile.email, '이메일을 등록해 주세요');
-    if (profile.email.trim()) {
-      emailLink.title = '클릭하여 이메일 주소 복사';
-      emailLink.setAttribute('aria-label', '이메일 주소 복사: ' + profile.email.trim());
-    } else {
-      emailLink.removeAttribute('title');
-      emailLink.removeAttribute('aria-label');
-    }
-
-    setLink(
-      byId('phone-link'),
-      profile.phone,
-      'tel:' + profile.phone.replace(/[^\d+]/g, ''),
-      '전화번호를 등록해 주세요'
-    );
+    updateContactRow('email-copy-row', 'email-link', profile.email,
+      '이메일 정보 없음', '이메일 주소 복사');
+    updateContactRow('phone-copy-row', 'phone-link', profile.phone,
+      '전화번호 정보 없음', '전화번호 복사');
 
     const emailButton = byId('email-button');
-    if (profile.email.trim()) {
-      emailButton.href = 'mailto:' + profile.email.trim();
+    if (profile.email) {
+      emailButton.href = 'mailto:' + profile.email;
       emailButton.removeAttribute('aria-disabled');
       emailButton.removeAttribute('tabindex');
     } else {
@@ -212,108 +184,10 @@
       emailButton.setAttribute('aria-disabled', 'true');
       emailButton.setAttribute('tabindex', '-1');
     }
-
     document.title = profile.name
       ? profile.name + ' | Digital Business Card'
       : 'Digital Business Card';
   }
-
-  function openEditor() {
-    byId('field-name').value = profile.name;
-    byId('field-role').value = profile.role;
-    byId('field-email').value = profile.email;
-    byId('field-phone').value = profile.phone;
-    photoInput.value = '';
-    pendingPhoto = null;
-    photoNote.textContent = profile.photo
-      ? '현재 프로필 사진이 등록되어 있습니다.'
-      : 'JPG, PNG, WebP 등 · 최대 15MB · 자동 정사각형 크롭';
-    byId('remove-photo').hidden = !profile.photo;
-    dialog.showModal();
-  }
-
-  async function compressImage(file) {
-    if (!file || !/^image\/(jpeg|png|webp|gif|avif)$/.test(file.type)) {
-      throw new Error('JPG, PNG, WebP, GIF 또는 AVIF 이미지를 선택해 주세요.');
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      throw new Error('15MB 이하의 이미지를 선택해 주세요.');
-    }
-
-    const objectURL = URL.createObjectURL(file);
-    try {
-      const picture = new Image();
-      picture.src = objectURL;
-      await new Promise((resolve, reject) => {
-        picture.onload = resolve;
-        picture.onerror = () => reject(new Error('이미지를 읽지 못했습니다. 다른 파일을 사용해 주세요.'));
-      });
-
-      const side = 600;
-      const crop = Math.min(picture.naturalWidth, picture.naturalHeight);
-      if (!crop) throw new Error('올바른 이미지 파일이 아닙니다.');
-      const x = (picture.naturalWidth - crop) / 2;
-      const y = (picture.naturalHeight - crop) / 2;
-      const canvas = document.createElement('canvas');
-      canvas.width = side;
-      canvas.height = side;
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('이 브라우저에서 이미지 변환을 지원하지 않습니다.');
-      context.fillStyle = '#262a32';
-      context.fillRect(0, 0, side, side);
-      context.drawImage(picture, x, y, crop, crop, 0, 0, side, side);
-      return canvas.toDataURL('image/jpeg', 0.86);
-    } finally {
-      URL.revokeObjectURL(objectURL);
-    }
-  }
-
-  photoInput.addEventListener('change', async () => {
-    const file = photoInput.files && photoInput.files[0];
-    if (!file) return;
-
-    readingPhoto = true;
-    applyButton.disabled = true;
-    photoNote.textContent = '이미지를 최적화하는 중입니다…';
-    try {
-      pendingPhoto = await compressImage(file);
-      photoNote.textContent = '사진 준비 완료 · 변경 적용을 눌러 반영하세요.';
-      byId('remove-photo').hidden = false;
-    } catch (error) {
-      pendingPhoto = null;
-      photoInput.value = '';
-      photoNote.textContent = error.message;
-    } finally {
-      readingPhoto = false;
-      applyButton.disabled = false;
-    }
-  });
-
-  byId('remove-photo').addEventListener('click', () => {
-    pendingPhoto = '';
-    photoInput.value = '';
-    photoNote.textContent = '사진이 제거됩니다. 변경 적용을 눌러 반영하세요.';
-    byId('remove-photo').hidden = true;
-  });
-
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (readingPhoto || !form.reportValidity()) return;
-    profile.name = byId('field-name').value.trim();
-    profile.role = byId('field-role').value.trim();
-    profile.email = byId('field-email').value.trim();
-    profile.phone = byId('field-phone').value.trim();
-    if (pendingPhoto !== null) profile.photo = pendingPhoto;
-    renderProfile();
-    dialog.close();
-    byId('announce').textContent = '프로필이 수정되었습니다. HTML 파일 저장 버튼으로 파일에 반영하세요.';
-  });
-
-  byId('avatar-button').addEventListener('click', openEditor);
-  byId('open-editor').addEventListener('click', openEditor);
-  byId('close-editor').addEventListener('click', () => dialog.close());
-  byId('cancel-editor').addEventListener('click', () => dialog.close());
-  byId('email-link').addEventListener('click', copyEmail);
 
   function saveBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -329,8 +203,7 @@
   function safeFileName(name) {
     return (name || 'business-card')
       .replace(/[\\/:*?"<>|\x00-\x1F]/g, '')
-      .trim()
-      .slice(0, 60) || 'business-card';
+      .trim().slice(0, 60) || 'business-card';
   }
 
   function escapeVcard(value) {
@@ -341,55 +214,27 @@
       .replace(/,/g, '\\,');
   }
 
-  byId('download-vcard').addEventListener('click', () => {
+  function downloadVcard() {
     const lines = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:' + escapeVcard(profile.name)];
     if (profile.role) lines.push('TITLE:' + escapeVcard(profile.role));
     if (profile.email) lines.push('EMAIL;TYPE=INTERNET:' + escapeVcard(profile.email));
     if (profile.phone) lines.push('TEL;TYPE=CELL:' + escapeVcard(profile.phone));
     lines.push('END:VCARD');
     saveBlob(
-      new Blob(['\ufeff' + lines.join('\r\n') + '\r\n'], { type: 'text/vcard;charset=utf-8' }),
+      new Blob(['\ufeff' + lines.join('\r\n') + '\r\n'], {type: 'text/vcard;charset=utf-8'}),
       safeFileName(profile.name) + '.vcf'
     );
-  });
-
-  // HTML 내보내기는 CSS/JS 외부 파일 연결을 그대로 유지합니다.
-  byId('export-html').addEventListener('click', () => {
-    const copy = document.documentElement.cloneNode(true);
-    copy.querySelector('#profile-data').textContent = JSON.stringify(profile)
-      .replace(/</g, '\\u003c')
-      .replace(/>/g, '\\u003e')
-      .replace(/&/g, '\\u0026');
-
-    const copyImage = copy.querySelector('#avatar-image');
-    copyImage.removeAttribute('src');
-    copyImage.setAttribute('hidden', '');
-    copy.querySelector('#editor-dialog').removeAttribute('open');
-    copy.querySelector('#announce').textContent = '';
-
-    // JS 실행 중 생성한 UI는 저장본에서 제외하고 다시 로드할 때 JS가 생성합니다.
-    copy.querySelector('#business-card-interaction-styles')?.remove();
-    copy.querySelector('#copy-toast')?.remove();
-
-    const fileContent = '<!DOCTYPE html>\n' + copy.outerHTML;
-    saveBlob(
-      new Blob([fileContent], { type: 'text/html;charset=utf-8' }),
-      safeFileName(profile.name) + '_웹명함.html'
-    );
-    byId('announce').textContent = 'HTML을 저장했습니다. 같은 폴더에 style.css와 script.js가 있어야 작동합니다.';
-  });
-
-  // GitHub 링크는 JavaScript가 비활성화되어도 HTML 기본 링크로 작동합니다.
-  // JS 구동 시에는 새 탭 열기와 보안 속성을 다시 보장합니다.
-  function initializeGitHubLink() {
-    const githubButton = byId('github-button');
-    if (!githubButton) return;
-    githubButton.href = 'https://github.com/alsgur980213-cell';
-    githubButton.target = '_blank';
-    githubButton.rel = 'noopener noreferrer';
   }
 
+  const avatar = byId('avatar-image');
+  avatar.addEventListener('error', () => {
+    avatar.hidden = true;
+    byId('avatar-initial').hidden = false;
+  });
+
+  byId('email-copy-row').addEventListener('click', () => copyContact(profile.email, '이메일 주소'));
+  byId('phone-copy-row').addEventListener('click', () => copyContact(profile.phone, '전화번호'));
+  byId('download-vcard').addEventListener('click', downloadVcard);
   installInteractionStyles();
-  initializeGitHubLink();
   renderProfile();
 })();

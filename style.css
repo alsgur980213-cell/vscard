@@ -53,8 +53,7 @@
       padding: 65px 0 48px;
     }
     .masthead, .masthead-left, .masthead-right, .card-heading, .card-actions,
-    .footer-actions, .page-footer, .contact-row, .contact-text, .editor-title,
-    .dialog-actions { display: flex; align-items: center; }
+    .contact-row, .contact-text { display: flex; align-items: center; }
     .masthead { justify-content: space-between; gap: 12px; margin-bottom: 25px; }
     .masthead-left { gap: 11px; }
     .logo-mark {
@@ -68,7 +67,8 @@
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #dde2f2; box-shadow: 0 0 12px rgba(221,226,242,.35); }
     .card {
       position: relative;
-      overflow: hidden;
+      overflow: hidden; /* 이전 브라우저용 대체 */
+      overflow: clip; /* 장식 원 때문에 카드 내부가 수평 스크롤되지 않도록 */
       padding: 42px 46px 38px;
       border: 1px solid #dde2f2;
       border-radius: var(--radius);
@@ -92,15 +92,14 @@
     .eyebrow { color: #d8e0f2; }
     .number { color: var(--quiet); font-variant-numeric: tabular-nums; }
     .hero { display: flex; align-items: center; gap: 35px; margin: 44px 0 42px; }
-    .avatar-button {
+    .avatar-frame {
       flex: 0 0 177px;
       width: 177px; height: 193px;
       position: relative; padding: 6px; display: block;
       border: 1px solid var(--line-strong);
       border-radius: 22px; background: #1e2a4d;
-      transition: border-color .2s, transform .2s;
+      cursor: default;
     }
-    .avatar-button:hover { border-color: #dde2f2; transform: translateY(-2px); }
     .avatar-inner {
       width: 100%; height: 100%; overflow: hidden; position: relative;
       display: grid; place-items: center; border-radius: 16px;
@@ -112,12 +111,6 @@
     .avatar-inner:has(img:not([hidden]))::before, .avatar-inner:has(img:not([hidden]))::after { display: none; }
     .avatar-image { display: block; width: 100%; height: 100%; object-fit: cover; }
     .avatar-initial { font-size: 56px; font-weight: 650; letter-spacing: -.06em; color: #e6e9ee; }
-    .camera-badge {
-      position: absolute; right: -7px; bottom: -7px;
-      height: 34px; width: 34px; display: grid; place-items: center;
-      border: 3px solid #151e39; border-radius: 12px; background: #dde2f2; color: #152041;
-    }
-    .camera-badge svg { width: 16px; height: 16px; }
     .identity { min-width: 0; }
     .intro { color: var(--muted); margin: 0 0 10px; font-size: 11px; font-weight: 650; letter-spacing: .21em; }
     /* 기존 이름 크기에 정확히 1pt 추가; 기기 기본 글꼴만 사용 */
@@ -140,6 +133,39 @@
       border-radius: 15px; border: 1px solid rgba(221,226,242,.14);
       background: rgba(221,226,242,.035);
     }
+    /* CONTACT DETAILS / BLOG: 전체 행을 눌러 네이버 블로그로 이동 */
+    .contact-row-link {
+      cursor: pointer;
+      transition: background .2s ease, border-color .2s ease, transform .2s ease;
+    }
+    .contact-row-link:hover {
+      border-color: rgba(221,226,242,.46);
+      background: rgba(221,226,242,.085);
+      transform: translateY(-1px);
+    }
+    .contact-row-link:hover .contact-value { color: #fff; }
+    .contact-row-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+    /* EMAIL / PHONE: 카드 전체 클릭으로 복사, BLOG와 동일한 호버 효과 */
+    .contact-row-copy {
+      appearance: none;
+      font: inherit;
+      line-height: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: copy;
+    }
+    .contact-row-copy:disabled {
+      opacity: .52;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .contact-row-copy:disabled:hover {
+      border-color: rgba(221,226,242,.14);
+      background: rgba(221,226,242,.035);
+    }
     .contact-icon {
       flex: none; display: grid; place-items: center;
       width: 39px; height: 39px; border-radius: 12px;
@@ -152,105 +178,64 @@
     .contact-value[href]:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
     .contact-value.is-empty { color: var(--quiet); cursor: default; }
     .external-arrow { color: #9eacc8; width: 17px; height: 17px; flex: none; }
-    .card-actions { gap: 12px; margin-top: 25px; }
+    /* 모든 액션 버튼: GitHub의 네이비 아웃라인을 기본값으로 통일 */
+    .card-actions { gap: 12px; margin-top: 25px; flex-wrap: wrap; }
     .button {
-      min-height: 49px; display: inline-flex; justify-content: center; align-items: center; gap: 9px;
-      border-radius: 12px; border: 1px solid var(--line-strong); padding: 0 20px;
-      font-size: 13px; font-weight: 700; white-space: nowrap;
-      transition: transform .2s, background .2s, border-color .2s;
+      box-sizing: border-box;
+      width: 210px;
+      max-width: 100%;
+      min-height: 49px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 20px;
+      border: 1px solid #dde2f2;
+      border-radius: 12px;
+      background: rgba(221, 226, 242, .06);
+      color: #dde2f2;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform .2s ease, background-color .2s ease,
+                  border-color .2s ease, color .2s ease;
     }
-    .button:hover:not(:disabled):not([aria-disabled="true"]) { transform: translateY(-1px); }
-    .button-primary { color: #151e3a; background: #dde2f2; border-color: #dde2f2; }
-    .button-primary:hover:not(:disabled):not([aria-disabled="true"]) { background: #f7f8ff; }
-    .button-quiet { color: #e8ecf7; background: rgba(221,226,242,.065); }
-    .button-quiet:hover:not(:disabled) { background: rgba(221,226,242,.13); }
+    /* 이메일·연락처·GitHub 동일: 마우스/키보드 포커스 시 밝은 버튼 */
+    .button:hover:not(:disabled):not([aria-disabled="true"]),
+    .button:focus-visible:not(:disabled):not([aria-disabled="true"]) {
+      background: #dde2f2;
+      border-color: #dde2f2;
+      color: #151e3a;
+      transform: translateY(-1px);
+    }
     .button[aria-disabled="true"] { opacity: .43; pointer-events: none; }
+    .button:disabled { opacity: .43; cursor: not-allowed; }
     .button svg { width: 16px; height: 16px; }
-    /* 기존 버튼 아래 GitHub 링크 버튼: 원래 디자인 색상·모션과 통일 */
-     .github-actions { display: flex; align-items: center; margin-top: 12px; }
-     .button-github {
-       min-width: 170px;
-       border: 1px solid #dde2f2;
-       border-radius: 10px;
-       color: #dde2f2;
-       background: rgba(221,226,242,.06);
-       letter-spacing: .01em;
-     }
-     .button-github:hover {
-       background: rgba(221,226,242,.15);
-       border-color: #f7f8fd;
-       color: #fff;
-     }
-     .page-footer { margin-top: 21px; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
-    .footer-caption { font-size: 10px; color: var(--quiet); letter-spacing: .16em; }
-    .footer-actions { gap: 17px; }
-    .text-button {
-      color: #c3cee4; background: none; border: 0; padding: 8px 0;
-      font-size: 12px; font-weight: 620;
-    }
-    .text-button:hover { color: #fff; }
-    .text-button.strong { color: #f2f4f7; }
-    .help { color: var(--quiet); font-size: 11px; margin: 17px 0 0; text-align: right; }
-    .editor {
-      width: min(calc(100vw - 30px), 510px);
-      max-height: min(92vh, 780px); overflow-y: auto;
-      padding: 0; border: 1px solid var(--line-strong); border-radius: 22px;
-      background: #131c36; color: var(--text);
-      box-shadow: 0 28px 100px rgba(0,0,0,.75);
-    }
-    .editor::backdrop { background: rgba(5,8,26,.78); backdrop-filter: blur(7px); }
-    .editor-content { padding: 29px; }
-    .editor-title { justify-content: space-between; margin-bottom: 7px; }
-    .editor-title h2 { font-size: 21px; margin: 0; letter-spacing: -.035em; }
-    .close-button { border: 0; color: #d1daec; background: transparent; font-size: 26px; line-height: 1; padding: 2px 6px; }
-    .editor-description { margin: 0 0 24px; font-size: 12px; color: var(--muted); }
-    .field { display: block; margin-bottom: 15px; }
-    .field-label { display: block; font-size: 12px; font-weight: 650; color: #e5eaf6; margin-bottom: 8px; }
-    .field input[type="text"], .field input[type="email"], .field input[type="tel"] {
-      width: 100%; height: 44px; padding: 0 13px; color: #f7f8fd;
-      border: 1px solid rgba(221,226,242,.24); border-radius: 10px; background: #0d152b;
-      outline: none;
-    }
-    .field input:focus-visible { border-color: #dde2f2; box-shadow: 0 0 0 2px rgba(221,226,242,.2); }
-    .file-input { display: block; width: 100%; color: var(--muted); font-size: 12px; }
-    .file-input::file-selector-button {
-      background: #263453; border: 1px solid var(--line-strong); border-radius: 8px;
-      color: #f7f8fd; margin-right: 12px; padding: 8px 11px; cursor: pointer;
-    }
-    .photo-note { min-height: 18px; color: var(--muted); font-size: 11px; margin: 7px 0 2px; overflow-wrap: anywhere; }
-    .remove-photo { border: 0; background: transparent; padding: 5px 0; font-size: 12px; color: #c4cfe5; }
-    .remove-photo:hover { text-decoration: underline; }
-    .dialog-actions { justify-content: flex-end; gap: 9px; margin-top: 25px; }
-    .dialog-actions .button { min-height: 44px; }
-    .button:disabled { opacity: .5; cursor: not-allowed; }
+    .github-actions { display: flex; align-items: center; margin-top: 12px; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 620px) {
       .shell { width: min(100% - 30px, 480px); padding: 35px 0 34px; }
       .card { padding: 29px 24px 28px; border-radius: 22px; }
       .hero { margin: 30px 0 32px; gap: 22px; align-items: flex-start; }
-      .avatar-button { width: 123px; height: 139px; flex-basis: 123px; border-radius: 17px; padding: 5px; }
+      .avatar-frame { width: 123px; height: 139px; flex-basis: 123px; border-radius: 17px; padding: 5px; }
       .avatar-inner { border-radius: 12px; }
       .avatar-initial { font-size: 43px; }
       h1 { font-size: clamp(calc(27px + 1pt), calc(7vw + 1pt), calc(40px + 1pt)); }
       .role { font-size: 13px; line-height: 1.55; margin-top: 9px; }
       .identity-rule { margin-top: 17px; }
       .intro { margin-bottom: 8px; font-size: 10px; }
-      .camera-badge { width: 30px; height: 30px; }
-      .page-footer { align-items: flex-start; }
     }
     @media (max-width: 420px) {
       .masthead-right { display: none; }
       .hero { gap: 16px; }
-      .avatar-button { width: 108px; height: 126px; flex-basis: 108px; }
+      .avatar-frame { width: 108px; height: 126px; flex-basis: 108px; }
       .card { padding: 26px 18px; }
       .contact-row { padding: 13px; gap: 12px; }
       .contact-value { font-size: 13px; }
       .card-actions { flex-direction: column; }
       .card-actions .button { width: 100%; }
        .github-actions .button { width: 100%; }
-      .footer-caption { display: none; }
-      .page-footer { justify-content: flex-end; }
-      .help { text-align: right; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
