@@ -166,7 +166,22 @@
     .button-quiet:hover:not(:disabled) { background: rgba(221,226,242,.13); }
     .button[aria-disabled="true"] { opacity: .43; pointer-events: none; }
     .button svg { width: 16px; height: 16px; }
-    .page-footer { margin-top: 21px; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    /* 기존 버튼 아래 GitHub 링크 버튼: 원래 디자인 색상·모션과 통일 */
+     .github-actions { display: flex; align-items: center; margin-top: 12px; }
+     .button-github {
+       min-width: 170px;
+       border: 1px solid #dde2f2;
+       border-radius: 10px;
+       color: #dde2f2;
+       background: rgba(221,226,242,.06);
+       letter-spacing: .01em;
+     }
+     .button-github:hover {
+       background: rgba(221,226,242,.15);
+       border-color: #f7f8fd;
+       color: #fff;
+     }
+     .page-footer { margin-top: 21px; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
     .footer-caption { font-size: 10px; color: var(--quiet); letter-spacing: .16em; }
     .footer-actions { gap: 17px; }
     .text-button {
@@ -232,6 +247,7 @@
       .contact-value { font-size: 13px; }
       .card-actions { flex-direction: column; }
       .card-actions .button { width: 100%; }
+       .github-actions .button { width: 100%; }
       .footer-caption { display: none; }
       .page-footer { justify-content: flex-end; }
       .help { text-align: right; }

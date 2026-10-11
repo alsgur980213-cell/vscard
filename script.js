@@ -379,6 +379,17 @@
     byId('announce').textContent = 'HTML을 저장했습니다. 같은 폴더에 style.css와 script.js가 있어야 작동합니다.';
   });
 
+  // GitHub 링크는 JavaScript가 비활성화되어도 HTML 기본 링크로 작동합니다.
+  // JS 구동 시에는 새 탭 열기와 보안 속성을 다시 보장합니다.
+  function initializeGitHubLink() {
+    const githubButton = byId('github-button');
+    if (!githubButton) return;
+    githubButton.href = 'https://github.com/alsgur980213-cell';
+    githubButton.target = '_blank';
+    githubButton.rel = 'noopener noreferrer';
+  }
+
   installInteractionStyles();
+  initializeGitHubLink();
   renderProfile();
 })();
